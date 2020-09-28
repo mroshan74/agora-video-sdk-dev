@@ -1,81 +1,144 @@
 import React, { useEffect, useRef, useState } from 'react'
-import AgoraRTC from 'agora-rtc-sdk'
+import AgoraRTC from 'agora-rtc-sdk-ng'
+import ReactDOM from 'react-dom'
+import { rtc, options } from './agora-config'
+import "./App.css";
 
-const appID = '4b88997c353f432fbad18f5305e426a8'
+function App() {
+  const [joined, setJoined] = useState(false);
+  const channelRef = useRef("");
+  const remoteRef = useRef("");
+  const leaveRef = useRef("");
 
-const App = () => {
-  const [rtc, setRtc] = useState({
-    client: null,
-    joined: false,
-    published: false,
-    localStream: null,
-    remoteStreams: [],
-    params: {}
-  })
+  async function handleSubmit(e) {
+    try {
+      if (channelRef.current.value === "") {
+        return console.log("Please Enter Channel Name");
+      }
+      setJoined(true);
 
-  const [option, setOption] = useState({
-    appID,
-    channel: "demoChannel", // dynamic unique
-    uid: "random",  // dynamic unique
-    token: "Your token" // optional --> create in the server
-  })
-  console.log(option.appID)
-  useEffect(() => {
-    // rtc.localStream = AgoraRTC.createStream({
-    //   streamID: option.uid,
-    //   audio: true,
-    //   video: true,
-    //   screen: false,
-    // });
+      rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "h264" })
+      const uid = await rtc.client.join(options.appId, channelRef.current.value , options.token, null);
+      // Create an audio track from the audio captured by a microphone
+      rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack()
+      // Create a video track from the video captured by a camera
+      rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack()
 
-    // // Initialize the local stream
-    // rtc.localStream.init(function () {
-    //   console.log("init local stream success");
-    //   // play stream with html element id "local_stream"
-    //   rtc.localStream.play("local_stream");
-    // }, function (err) {
-    //   console.error("init local stream failed ", err);
-    // });
+      await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
 
-    // // Publish the local stream
-    setRtc({
-      ...rtc,
-      client: AgoraRTC.createClient({mode: "rtc", codec: "h264"}),
-      localStream :  AgoraRTC.createStream({
-        streamID: option.uid,
-        audio: true,
-        video: true,
-        screen: false,
-      })
-    })
-  },[])
+      console.log("publish success!");
 
-  
+      rtc.localVideoTrack.play("local-stream");
 
-  if(rtc.localStream){
-     // Initialize the local stream
-    rtc.localStream.init(function () {
-      console.log("init local stream success");
-      // play stream with html element id "local_stream"
-      rtc.localStream.play("local_stream");
-    }, function (err) {
-      console.error("init local stream failed ", err);
-    });
+      rtc.client.on("user-published", async (user, mediaType) => {
+        // Subscribe to a remote user
+        await rtc.client.subscribe(user, mediaType);
+        console.log("subscribe success");
+        // console.log(user);
 
-    // Publish the local stream
-    console.log('[rtc.client]', rtc.client)
-    rtc.client.publish(rtc.localStream, function (err) {
-      console.log("publish failed");
-      console.error(err);
-    })
+        if (mediaType === "video") {
+          // Get `RemoteVideoTrack` in the `user` object.
+          const remoteVideoTrack = user.videoTrack;
+          console.log(remoteVideoTrack);
+
+          // Dynamically create a container in the form of a DIV element for playing the remote video track.
+          const PlayerContainer = React.createElement("div", {
+            id: user.uid,
+            className: "stream",
+          });
+          ReactDOM.render(
+            PlayerContainer,
+            document.getElementById("remote-stream")
+          );
+            
+          remoteVideoTrack.play(`${user.uid}`);
+        }
+
+        if (mediaType === "audio") {
+          // Get `RemoteAudioTrack` in the `user` object.
+          const remoteAudioTrack = user.audioTrack;
+          // Play the audio track. Do not need to pass any DOM element
+          remoteAudioTrack.play();
+        }
+      });
+
+      rtc.client.on("user-unpublished", (user) => {
+        // Get the dynamically created DIV container
+        const playerContainer = document.getElementById(user.uid);
+        console.log(playerContainer);
+        // Destroy the container
+        playerContainer.remove();
+      });
+
+      // Publish the local audio and video tracks to the channel
+      await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
+
+      console.log("publish success!");
+    } catch (error) {
+      console.error(error);
+    }
   }
-  
-  return(
-    <div>
-      <h2>Code goes here...</h2>
-      <div id='local_stream'></div>
-    </div>
-  )
+
+  async function handleLeave() {
+    try {
+      const localContainer = document.getElementById("local-stream");
+
+      rtc.localAudioTrack.close();
+      rtc.localVideoTrack.close();
+
+      setJoined(false);
+      localContainer.textContent = "";
+
+      // Traverse all remote users
+      rtc.client.remoteUsers.forEach((user) => {
+        // Destroy the dynamically created DIV container
+        console.log(user)
+        const playerContainer = document.getElementById(user.uid);
+        playerContainer && playerContainer.remove();
+      });
+
+      // Leave the channel
+      await rtc.client.leave();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  return (
+    <>
+      <div className="container">
+        <input
+          type="text"
+          ref={channelRef}
+          id="channel"
+          placeholder="Enter Channel name"
+        />
+        <input
+          type="submit"
+          value="Join"
+          onClick={handleSubmit}
+          disabled={joined ? true : false}
+        />
+        <input
+          type="button"
+          ref={leaveRef}
+          value="Leave"
+          onClick={handleLeave}
+          disabled={joined ? false : true}
+        />
+      </div>
+      {joined ? (
+        <>
+          <div id="local-stream" className="stream local-stream"></div>
+          <div
+            id="remote-stream"
+            ref={remoteRef}
+            className="stream remote-stream"
+          ></div>
+        </>
+      ) : null}
+    </>
+  );
 }
 
-export default App
+export default App;
