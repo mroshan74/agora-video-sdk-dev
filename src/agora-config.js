@@ -12,4 +12,5 @@ export const options = {
     appId,
     // Pass a token if your project enables the App Certificate
     token: null,
+    uid: null,
 }

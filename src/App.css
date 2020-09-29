@@ -17,8 +17,17 @@
 
   .remote-stream{
       border: 5px solid green;
+      margin: 6px;
   }
 
   .local-stream{
       border: 5px solid blue;
+      margin: 10px;
+  }
+
+  .rem-stream{
+    width: 100vw;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
   }
