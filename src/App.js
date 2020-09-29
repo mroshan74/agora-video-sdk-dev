@@ -20,28 +20,26 @@ function App() {
       rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "h264" })
       const uid = await rtc.client.join(options.appId, channelRef.current.value , options.token, null);
       // Create an audio track from the audio captured by a microphone
+      //console.log('',uid)
       rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack()
       // Create a video track from the video captured by a camera
       rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack()
-
-      await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
-
-      console.log("publish success!");
 
       rtc.localVideoTrack.play("local-stream");
 
       rtc.client.on("user-published", async (user, mediaType) => {
         // Subscribe to a remote user
-        await rtc.client.subscribe(user, mediaType);
-        console.log("subscribe success");
-        // console.log(user);
+        await rtc.client.subscribe(user,mediaType)
+        console.log(rtc.client,"subscribe success")
+        console.log(user)
 
         if (mediaType === "video") {
           // Get `RemoteVideoTrack` in the `user` object.
-          const remoteVideoTrack = user.videoTrack;
-          console.log(remoteVideoTrack);
+          const remoteVideoTrack = user.videoTrack
+          console.log(remoteVideoTrack)
 
           // Dynamically create a container in the form of a DIV element for playing the remote video track.
+
           const PlayerContainer = React.createElement("div", {
             id: user.uid,
             className: "stream",
@@ -51,7 +49,7 @@ function App() {
             document.getElementById("remote-stream")
           );
             
-          remoteVideoTrack.play(`${user.uid}`);
+          user.videoTrack.play(`${user.uid}`);
         }
 
         if (mediaType === "audio") {
@@ -60,20 +58,22 @@ function App() {
           // Play the audio track. Do not need to pass any DOM element
           remoteAudioTrack.play();
         }
-      });
+      })
+    
+    
+    rtc.client.on("user-unpublished", (user) => {
+      // Get the dynamically created DIV container
+      const playerContainer = document.getElementById(user.uid);
+      console.log(playerContainer);
+      // Destroy the container
+      playerContainer.remove();
+    });
 
-      rtc.client.on("user-unpublished", (user) => {
-        // Get the dynamically created DIV container
-        const playerContainer = document.getElementById(user.uid);
-        console.log(playerContainer);
-        // Destroy the container
-        playerContainer.remove();
-      });
+    // Publish the local audio and video tracks to the channel
+    await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
 
-      // Publish the local audio and video tracks to the channel
-      await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
+    console.log("publish success!");
 
-      console.log("publish success!");
     } catch (error) {
       console.error(error);
     }
