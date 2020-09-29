@@ -193,6 +193,11 @@ function App() {
       // console.log('[*********SHARING TERMINATED***********]','onEnded')
 
 
+      //! https://agoraio-community.github.io/AgoraWebSDK-NG/api/en/interfaces/ilocaltrack.html#on
+      screen.on('track-ended', event_track_ended => {
+        console.log(event_track_ended)
+        handleStopScreenShare()
+      })
       //! // Get a `MediaStreamTrack` object by custom capture
       // const logMedia = await navigator.mediaDevices.getDisplayMedia()
       // console.log(logMedia)
