@@ -1,149 +1,112 @@
 import React, { useEffect, useRef, useState } from 'react'
 import AgoraRTC from 'agora-rtc-sdk-ng'
-import ReactDOM from 'react-dom'
+// import ReactDOM from 'react-dom'
 import { rtc, options } from './agora-config'
-import "./App.css";
+import "./App.css"
 
 let remoteUsers = {}
 function App() {
-  const [joined, setJoined] = useState(false);
-  const [share, setShare] = useState(false);
-  const channelRef = useRef("");
-  const remoteRef = useRef("");
-  const leaveRef = useRef("");
-  const screenShare = useRef();
+  const [joined, setJoined] = useState(false)
+  const [share, setShare] = useState(false)
+  const channelRef = useRef("")
+  const remoteRef = useRef("")
+  const leaveRef = useRef("")
+  const screenShare = useRef()
   // const remoteStream = useRef([])
   //const [ remoteStream , setRemoteStream ] = useState([])
-  useEffect(() => {
-    
-
-  })
 
   async function handleSubmit(e) {
     try {
       if (channelRef.current.value === "") {
-        return console.log("Please Enter Channel Name");
+        return console.log("Please Enter Channel Name")
       }
       setJoined(true);
 
+      /**
+        @rtc_client 
+        ** rtc object constant of stream  
+      */
+  
+      // Create client for the user 
       rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "h264" })
+      // Listen for remote connections
       rtc.client.on('user-published', handleUserPublished)
+      // Listen for remote disconnection
       rtc.client.on('user-unpublished', handleUserUnpublished)
+      // Join the RTC channel
       const uid = await rtc.client.join(options.appId, channelRef.current.value , options.token, null)
       
       // Create an audio track from the audio captured by a microphone
-      //console.log('',uid)
       rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack()
       // Create a video track from the video captured by a camera
       rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack()
 
+      // Play local user video in the local-stream html element
       rtc.localVideoTrack.play("local-stream")
 
       // Publish the local audio and video tracks to the channel
-      await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
-      console.log("publish success!");
+      await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack])
+      console.log("publish success!")
 
       } catch (error) {
-        console.error(error);
+        console.error(error)
       }
 
-      // rtc.client.on("user-published", async (user, mediaType) => {
-      //   // Subscribe to a remote user
-      //   const uid = user.uid
-      //   await rtc.client.subscribe(user,mediaType)
-      //   console.log(rtc.client,"subscribe success")
-      //   console.log(user)
-
-      //   if (mediaType === "video") {
-      //     // Get `RemoteVideoTrack` in the `user` object.
-      //     const remoteVideoTrack = user.videoTrack
-      //     console.log(remoteVideoTrack)
-
-      //     // Dynamically create a container in the form of a DIV element for playing the remote video track.
-
-      //     const PlayerContainer = React.createElement("div", {
-      //       id: user.uid,
-      //       className: "stream",
-      //     });
-      //     ReactDOM.render(
-      //       PlayerContainer,
-      //       document.getElementById("remote-stream")
-      //     );
-            
-      //     user.videoTrack.play(`${user.uid}`);
-      //   }
-
-      //   if (mediaType === "audio") {
-      //     // Get `RemoteAudioTrack` in the `user` object.
-      //     const remoteAudioTrack = user.audioTrack;
-      //     // Play the audio track. Do not need to pass any DOM element
-      //     remoteAudioTrack.play();
-      //   }
-      // })
+      /** 
+        @subscribe to the channel stream connected
+        ** does not support react dynamic rendering of video elements
+        ** Video fetch done by dynamically creating div containers -> outbound react
+      */
       async function subscribe(user, mediaType) {
         // subscribe to a remote user
-        AgoraRTC.onCameraChanged = (info) => {
-          console.log("camera changed!", info.state, info.device);
-        }
-        await rtc.client.subscribe(user, mediaType);
-        console.log("subscribe success");
+        await rtc.client.subscribe(user, mediaType)
+        console.log("subscribe success")
         if (mediaType === 'video') {
-        //   let appendEle = (
-        //   <div id="${uid}" className="stream">
-        //     <p className="player-name">remoteUser(${uid})</p>
-        //     <div id="player-${uid}" className="player"></div>
-        //   </div>
-        // )
-        //   //remoteStream.current.push(appendEle)
-        //   setRemoteStream(...remoteStream,appendEle)
-        //   user.videoTrack.play(`player-${uid}`)
-
-
-        //! React element code
-          // const PlayerContainer = React.createElement("div", {
-          //   id: user.uid,
-          //   className: "stream",
-          // });
-          // ReactDOM.render(PlayerContainer,document.getElementById("remote-stream"))
-        //!  
+          //! React element code
+            // const PlayerContainer = React.createElement("div", {
+            //   id: user.uid,
+            //   className: "stream",
+            // });
+            // ReactDOM.render(PlayerContainer,document.getElementById("remote-stream"))
+          //!  
           // setRemoteStream(...remoteStream, PlayerContainer)
-          // // const appendEle = (
-          // //   [...remoteStream]
-          // // )
+          
           //! Vanilla js code -> outbound react.js
           // Dynamically create a container in the form of a DIV element for playing the remote video track.
-          const playerContainer = document.createElement("div");
+          const playerContainer = document.createElement("div")
           // Specify the ID of the DIV container. You can use the `uid` of the remote user.
-          playerContainer.id = user.uid.toString();
-          playerContainer.style.width = "320px";
-          playerContainer.style.height = "240px";
+          playerContainer.id = user.uid.toString()
+          playerContainer.style.width = "320px"
+          playerContainer.style.height = "240px"
           playerContainer.classList.add("remote-stream")
           const remoteDiv = document.getElementById('remote-stream')
-          remoteDiv.append(playerContainer);
+          remoteDiv.append(playerContainer)
 
-          user.videoTrack.play(`${user.uid}`);
+          user.videoTrack.play(`${user.uid}`)
 
         }
         if (mediaType === 'audio') {
-          user.audioTrack.play();
+          user.audioTrack.play()
         }
       }
 
       function handleUserPublished(user, mediaType) {
-        const id = user.uid;
-        remoteUsers[id] = user;
-        subscribe(user, mediaType);
+        // Store remote user joined the channel
+        const id = user.uid
+        remoteUsers[id] = user
+        // Create a subscribe function to remote
+        subscribe(user, mediaType)
       }
       
       function handleUserUnpublished(user) {
         const id = user.uid;
         // Get the dynamically created DIV container
         console.log('----------',id)
-        const playerContainer = document.getElementById(id);
+        const playerContainer = document.getElementById(id)
         console.log('----------',playerContainer)
-      // Destroy the container
+        // Destroy the container
         if(playerContainer){
-          playerContainer.remove();
+          playerContainer.remove()
           delete remoteUsers[id]
         }
       }
@@ -151,26 +114,26 @@ function App() {
 
   async function handleLeave() {
     try {
-      const localContainer = document.getElementById("local-stream");
+      const localContainer = document.getElementById("local-stream")
 
-      rtc.localAudioTrack.close();
-      rtc.localVideoTrack.close();
+      rtc.localAudioTrack.close()
+      rtc.localVideoTrack.close()
 
-      setJoined(false);
-      localContainer.textContent = "";
+      setJoined(false)
+      localContainer.textContent = ""
 
       // Traverse all remote users
       rtc.client.remoteUsers.forEach((user) => {
         // Destroy the dynamically created DIV container
         console.log(user)
-        const playerContainer = document.getElementById(user.uid);
-        playerContainer && playerContainer.remove();
+        const playerContainer = document.getElementById(user.uid)
+        playerContainer && playerContainer.remove()
       });
 
       // Leave the channel
-      await rtc.client.leave();
+      await rtc.client.leave()
     } catch (err) {
-      console.error(err);
+      console.error(err)
     }
   }
 
@@ -185,20 +148,20 @@ function App() {
       // await rtc.client.publish(screen.screenAudioTrack)
       // You can also publish multiple tracks at once
       // await rtc.client.unpublish()
+
+      // Can't handle two stream at once
       await rtc.client.unpublish(rtc.localVideoTrack)
       await rtc.client.publish(screen)
-      // somebody clicked on "Stop sharing"
-      console.log(screen,'++++++++++[screen]----------')
-      console.log(screen._mediaStreamTrack)
-      // console.log('[*********SHARING TERMINATED***********]','onEnded')
+      console.log(screen,'[screen]----------')
 
-
+      // Somebody clicked on "Stop sharing"
       //! https://agoraio-community.github.io/AgoraWebSDK-NG/api/en/interfaces/ilocaltrack.html#on
       screen.on('track-ended', event_track_ended => {
         console.log(event_track_ended)
+        console.log('[*********SHARING TERMINATED***********]','onEnded')
         handleStopScreenShare()
       })
-      //! // Get a `MediaStreamTrack` object by custom capture
+      //! Get a `MediaStreamTrack` object by custom capture
       // const logMedia = await navigator.mediaDevices.getDisplayMedia()
       // console.log(logMedia)
 
@@ -224,6 +187,7 @@ function App() {
 
   const handleStopScreenShare = async() => {
     setShare(false)
+    // Switching publish events
     await rtc.client.unpublish(screenShare.current)
     screenShare.current = null
     await rtc.client.publish(rtc.localVideoTrack)
@@ -281,7 +245,7 @@ function App() {
         </div>
       )}
     </>
-  );
+  )
 }
 
-export default App;
+export default App
